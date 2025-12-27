@@ -1,9 +1,10 @@
-// Менеджер портфолио
+// Менеджер портфолио со скрытой админкой
 class PortfolioManager {
     constructor() {
         this.projects = [];
         this.isAdmin = false;
         this.currentEditId = null;
+        this.adminPassword = "337701"; // Пароль по умолчанию
         this.init();
     }
 
@@ -26,13 +27,19 @@ class PortfolioManager {
         // Тема
         document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
         
-        // Админ режим
-        document.getElementById('adminToggle').addEventListener('click', () => this.toggleAdminMode());
+        // Секретная кнопка админа
+        document.getElementById('secretAdminBtn').addEventListener('click', () => this.showLoginModal());
+        
+        // Вход в админку
+        document.getElementById('loginBtn').addEventListener('click', () => this.login());
+        
+        // Выход из админки
+        document.getElementById('adminToggle')?.addEventListener('click', () => this.logout());
         
         // Добавить проект
         document.getElementById('addProjectBtn').addEventListener('click', () => {
             if (!this.isAdmin) {
-                this.showToast('Включите режим администратора', 'warning');
+                this.showToast('Войдите в админку', 'warning');
                 return;
             }
             this.openProjectModal();
@@ -48,10 +55,10 @@ class PortfolioManager {
         document.getElementById('categoryFilter').addEventListener('change', (e) => this.filterProjects(e.target.value));
         
         // Экспорт
-        document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
+        document.getElementById('exportBtn')?.addEventListener('click', () => this.exportData());
         
         // Очистить все
-        document.getElementById('clearBtn').addEventListener('click', () => this.clearAllData());
+        document.getElementById('clearBtn')?.addEventListener('click', () => this.clearAllData());
         
         // Форма контактов
         document.getElementById('contactForm').addEventListener('submit', (e) => {
@@ -59,19 +66,32 @@ class PortfolioManager {
             this.sendContactMessage();
         });
         
+        // Ввод пароля по Enter
+        document.getElementById('adminPassword')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.login();
+            }
+        });
+        
         // Горячие клавиши
         document.addEventListener('keydown', (e) => {
-            // Ctrl + S - сохранить
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            // Ctrl + S - сохранить (только в админке)
+            if ((e.ctrlKey || e.metaKey) && e.key === 's' && this.isAdmin) {
                 e.preventDefault();
                 this.saveData();
                 this.showToast('Данные сохранены', 'success');
             }
             
-            // Ctrl + A - добавить проект (в режиме админа)
+            // Ctrl + A - добавить проект (только в админке)
             if ((e.ctrlKey || e.metaKey) && e.key === 'a' && this.isAdmin) {
                 e.preventDefault();
                 this.openProjectModal();
+            }
+            
+            // Ctrl + L - показать логин (секретная комбинация)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+                e.preventDefault();
+                this.showLoginModal();
             }
         });
     }
@@ -80,8 +100,26 @@ class PortfolioManager {
 
     loadData() {
         try {
+            // Загрузка проектов
             const data = localStorage.getItem('portfolio_projects');
             this.projects = data ? JSON.parse(data) : [];
+            
+            // Загрузка пароля (если изменён)
+            const savedPassword = localStorage.getItem('portfolio_password');
+            if (savedPassword) {
+                this.adminPassword = savedPassword;
+            }
+            
+            // Загрузка сессии
+            const session = localStorage.getItem('portfolio_session');
+            if (session) {
+                const { isAdmin, expires } = JSON.parse(session);
+                if (expires > Date.now()) {
+                    this.isAdmin = isAdmin;
+                    this.updateAdminUI();
+                }
+            }
+            
             this.updateStats();
             this.renderProjects();
             this.updateTechCloud();
@@ -101,9 +139,92 @@ class PortfolioManager {
         }
     }
 
+    // ==================== АДМИНКА ====================
+
+    showLoginModal() {
+        const modal = new bootstrap.Modal(document.getElementById('loginModal'));
+        document.getElementById('adminPassword').value = '';
+        modal.show();
+    }
+
+    login() {
+        const password = document.getElementById('adminPassword').value;
+        
+        if (password === this.adminPassword) {
+            this.isAdmin = true;
+            
+            // Сохраняем сессию (24 часа)
+            const session = {
+                isAdmin: true,
+                expires: Date.now() + (24 * 60 * 60 * 1000)
+            };
+            localStorage.setItem('portfolio_session', JSON.stringify(session));
+            
+            // Обновляем интерфейс
+            this.updateAdminUI();
+            
+            // Закрываем модалку
+            bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+            
+            this.showToast('Успешный вход в админку', 'success');
+            
+            // Меняем пароль если это первый вход
+            if (password === 'admin123') {
+                setTimeout(() => {
+                    if (confirm('Рекомендуем изменить пароль по умолчанию. Изменить сейчас?')) {
+                        this.changePassword();
+                    }
+                }, 1000);
+            }
+        } else {
+            this.showToast('Неверный пароль', 'error');
+            document.getElementById('adminPassword').value = '';
+            document.getElementById('adminPassword').focus();
+        }
+    }
+
+    logout() {
+        this.isAdmin = false;
+        localStorage.removeItem('portfolio_session');
+        this.updateAdminUI();
+        this.renderProjects(); // Перерисовываем без кнопок редактирования
+        this.showToast('Выход из админки', 'info');
+    }
+
+    updateAdminUI() {
+        if (this.isAdmin) {
+            document.body.classList.add('admin-active');
+            document.getElementById('adminToggle').textContent = 'Выйти';
+            document.getElementById('adminToggle').classList.remove('btn-primary');
+            document.getElementById('adminToggle').classList.add('btn-danger');
+            this.showToast('Режим администратора активен', 'success');
+        } else {
+            document.body.classList.remove('admin-active');
+            document.getElementById('adminToggle').textContent = 'Админ';
+            document.getElementById('adminToggle').classList.remove('btn-danger');
+            document.getElementById('adminToggle').classList.add('btn-primary');
+        }
+    }
+
+    changePassword() {
+        const newPassword = prompt('Введите новый пароль:');
+        if (newPassword && newPassword.length >= 4) {
+            this.adminPassword = newPassword;
+            localStorage.setItem('portfolio_password', newPassword);
+            this.showToast('Пароль изменён', 'success');
+        } else if (newPassword) {
+            this.showToast('Пароль должен быть не менее 4 символов', 'warning');
+        }
+    }
+
     // ==================== ПРОЕКТЫ ====================
 
     openProjectModal(project = null) {
+        if (!this.isAdmin) {
+            this.showToast('Войдите в админку', 'warning');
+            return;
+        }
+        
         this.currentEditId = project ? project.id : null;
         
         const modal = new bootstrap.Modal(document.getElementById('projectModal'));
@@ -188,7 +309,7 @@ class PortfolioManager {
                 <div class="col-12 text-center py-5">
                     <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
                     <h4>Проектов пока нет</h4>
-                    <p class="text-muted">Добавьте первый проект</p>
+                    <p class="text-muted">Добавьте первый проект через админ панель</p>
                 </div>
             `;
             return;
@@ -296,6 +417,11 @@ class PortfolioManager {
     }
 
     editProject(id) {
+        if (!this.isAdmin) {
+            this.showToast('Войдите в админку', 'warning');
+            return;
+        }
+        
         const project = this.projects.find(p => p.id === id);
         if (project) {
             this.openProjectModal(project);
@@ -303,6 +429,11 @@ class PortfolioManager {
     }
 
     deleteProject(id) {
+        if (!this.isAdmin) {
+            this.showToast('Войдите в админку', 'warning');
+            return;
+        }
+        
         if (!confirm('Удалить этот проект?')) return;
         
         this.projects = this.projects.filter(p => p.id !== id);
@@ -375,6 +506,9 @@ class PortfolioManager {
         const theme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-bs-theme', theme);
         this.updateThemeIcon(theme);
+        
+        // Обновляем UI админки
+        this.updateAdminUI();
     }
 
     // ==================== ТЕМА ====================
@@ -395,30 +529,14 @@ class PortfolioManager {
         }
     }
 
-    // ==================== АДМИН РЕЖИМ ====================
-
-    toggleAdminMode() {
-        this.isAdmin = !this.isAdmin;
-        const button = document.getElementById('adminToggle');
-        
-        if (this.isAdmin) {
-            button.classList.remove('btn-primary');
-            button.classList.add('btn-danger');
-            button.innerHTML = '<i class="fas fa-user-shield"></i> Админ';
-            this.showToast('Режим администратора включен', 'success');
-        } else {
-            button.classList.remove('btn-danger');
-            button.classList.add('btn-primary');
-            button.innerHTML = '<i class="fas fa-user-cog"></i> Админ';
-            this.showToast('Режим администратора выключен', 'info');
-        }
-        
-        this.renderProjects();
-    }
-
     // ==================== ЭКСПОРТ/ИМПОРТ ====================
 
     exportData() {
+        if (!this.isAdmin) {
+            this.showToast('Войдите в админку', 'warning');
+            return;
+        }
+        
         const data = {
             projects: this.projects,
             exportDate: new Date().toISOString(),
@@ -439,6 +557,11 @@ class PortfolioManager {
     }
 
     clearAllData() {
+        if (!this.isAdmin) {
+            this.showToast('Войдите в админку', 'warning');
+            return;
+        }
+        
         if (!confirm('ВНИМАНИЕ! Это удалит все проекты. Продолжить?')) return;
         
         this.projects = [];
@@ -523,6 +646,11 @@ document.head.appendChild(style);
 // Показываем приветственное сообщение
 window.addEventListener('load', () => {
     setTimeout(() => {
-        portfolio.showToast('Добро пожаловать! Нажмите на "Админ" для управления проектами', 'info');
+        // Автоматический вход при разработке (только локально)
+        if (window.location.protocol === 'file:' && !localStorage.getItem('portfolio_session')) {
+            setTimeout(() => {
+                portfolio.showToast('Для доступа к админке нажмите на секретную кнопку в правом нижнем углу', 'info');
+            }, 2000);
+        }
     }, 1000);
 });
