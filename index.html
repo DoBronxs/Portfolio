@@ -177,6 +177,15 @@
             background-color: #1a252f;
         }
         
+        /* Скрытые элементы */
+        .admin-only {
+            display: none;
+        }
+        
+        .admin-active .admin-only {
+            display: block !important;
+        }
+        
         /* Анимации */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
@@ -199,9 +208,40 @@
         .border-red {
             border-color: var(--color-red) !important;
         }
+        
+        /* Секретная кнопка админа */
+        .secret-admin-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--color-red);
+            color: white;
+            border: none;
+            cursor: pointer;
+            z-index: 1000;
+            opacity: 0.3;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        
+        .secret-admin-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
     </style>
 </head>
 <body>
+    <!-- Секретная кнопка админа -->
+    <button class="secret-admin-btn" id="secretAdminBtn" title="Админ панель">
+        <i class="fas fa-user-secret"></i>
+    </button>
+
     <!-- Навигация -->
     <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
@@ -233,7 +273,7 @@
                     <button class="btn btn-outline-primary btn-sm me-2" id="themeToggle">
                         <i class="fas fa-moon"></i>
                     </button>
-                    <button class="btn btn-primary btn-sm" id="adminToggle">
+                    <button class="btn btn-primary btn-sm admin-only" id="adminToggle" style="display: none;">
                         <i class="fas fa-user-cog"></i> Админ
                     </button>
                 </div>
@@ -269,7 +309,7 @@
                             <small>Активных</small>
                         </div>
                     </div>
-                    <button class="btn btn-primary me-2" id="addProjectBtn">
+                    <button class="btn btn-primary me-2 admin-only" id="addProjectBtn" style="display: none;">
                         <i class="fas fa-plus me-2"></i>Добавить проект
                     </button>
                     <a href="#projects" class="btn btn-outline-primary">
@@ -307,7 +347,7 @@
                 <div class="col-12 text-center py-5">
                     <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
                     <h4>Проектов пока нет</h4>
-                    <p class="text-muted">Добавьте первый проект</p>
+                    <p class="text-muted">Добавьте первый проект через админ панель</p>
                 </div>
             </div>
         </div>
@@ -368,6 +408,32 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                     <button type="button" class="btn btn-primary" id="saveProjectBtn">Сохранить проект</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка для входа в админку -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Вход в админку</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="adminPassword" 
+                               placeholder="Введите пароль администратора">
+                    </div>
+                    <div class="form-text">
+                        Для доступа к управлению проектами
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary" id="loginBtn">Войти</button>
                 </div>
             </div>
         </div>
@@ -505,7 +571,7 @@
                                 <i class="fab fa-github me-2 text-red"></i>
                                 <span>ovanes-surenovich</span>
                             </div>
-                            <div class="mt-4">
+                            <div class="mt-4 admin-only" style="display: none;">
                                 <a href="#" class="btn btn-outline-primary me-2" id="exportBtn">
                                     <i class="fas fa-download me-1"></i>Экспорт данных
                                 </a>
